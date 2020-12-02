@@ -31,7 +31,7 @@ mobile network, elevation, usage type from traceroute probes IP address.
 Usage
 -----
 ```bash
-ipltrace -p [IP ADDRESS/HOSTNAME] -d [IP2LOCATION BIN DATA PATH] [OPTIONS]
+ip2trace -p [IP ADDRESS/HOSTNAME] -d [IP2LOCATION BIN DATA PATH] [OPTIONS]
 
   -d, --dababase
   Specify the path of IP2Location BIN database file.
@@ -56,7 +56,7 @@ ipltrace -p [IP ADDRESS/HOSTNAME] -d [IP2LOCATION BIN DATA PATH] [OPTIONS]
 Traceroute an IP address.
 
 ```bash
-ipltrace -p 8.8.8.8 -d /usr/share/ip2location/DB3.BIN
+ip2trace -p 8.8.8.8 -d /usr/share/ip2location/DB3.BIN
 ```
 
 
@@ -64,7 +64,7 @@ ipltrace -p 8.8.8.8 -d /usr/share/ip2location/DB3.BIN
 Traceroute by hostname
 
 ```bash
-ipltrace -p google.com -d /usr/share/ip2location/DB3.BIN
+ip2trace -p google.com -d /usr/share/ip2location/DB3.BIN
 ```
 
 
