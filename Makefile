@@ -1,13 +1,12 @@
 CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra
+CFLAGS = 
 LIBS = -l IP2Location
 
 all: ip2trace
-ip2trace: src/main.o src/trace.o src/error.o
+ip2trace: src/main.o src/trace.o
 	$(CC) $(CFLAGS) $(LIBS) -o ip2trace $^
 main.o: src/trace.h
-trace.o: src/trace.h src/error.h
-error.o: src/error.h
+trace.o: src/trace.h
 
 clean:
 	rm -f src/*.o

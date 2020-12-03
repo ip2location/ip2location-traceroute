@@ -1,6 +1,10 @@
 #include "trace.h"
-#include "error.h"
-#include <netdb.h> 
+
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 static void print_usage()
 {
@@ -28,13 +32,25 @@ static void print_version()
 	printf("IP2Location Traceroute 8.0.0\n");
 }
 
+static int isIpv4(char *ip)
+{
+	struct sockaddr_in sa;
+	return inet_pton(AF_INET, ip, &sa.sin_addr);
+}
+
+static int isIpv6(char *ip)
+{
+	struct in6_addr result;
+	return inet_pton(AF_INET6, ip, &result);
+}
+
 int main(int argc, char *argv[])
 {
 	int i;
 	int ttl = 30;
 	char *database = NULL;
-	const char *ip = NULL;
-	struct hostent *host_entry;
+	char ip[INET6_ADDRSTRLEN];
+	struct addrinfo buffer, *res;
 
 	for (i = 1; i < argc; i++) {
 		const char *argvi = argv[i];
@@ -45,8 +61,38 @@ int main(int argc, char *argv[])
 			}
 		} else if (strcmp(argvi, "-p") == 0 || strcmp(argvi, "--ip") == 0) {
 			if (i + 1 < argc) {
-				host_entry = gethostbyname(argv[++i]);
-				ip = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
+				int err;
+				void *addr;
+				struct sockaddr_in *ipv4;
+				struct sockaddr_in6 *ipv6;
+
+				memset(&buffer, 0, sizeof buffer);
+				buffer.ai_family = AF_UNSPEC;
+				buffer.ai_socktype = SOCK_STREAM;
+
+				err = getaddrinfo(argv[++i], "http", &buffer, &res);
+				
+				if (err != 0) {
+					fprintf(stderr, "Host not reachable.\n");
+					return EXIT_FAILURE;
+				}
+				
+				// IPv4
+				if (res->ai_family == AF_INET) {
+					ipv4 = (struct sockaddr_in *)res->ai_addr;
+					addr = &(ipv4->sin_addr);
+				
+				// IPv6
+				} else {
+					ipv6 = (struct sockaddr_in6 *)res->ai_addr;
+					addr = &(ipv6->sin6_addr);
+				}
+
+				inet_ntop(res->ai_family, addr, ip, sizeof ip);
+				
+				// printf("=> %s\n", ip);
+				
+				freeaddrinfo(res);
 			}
 		} else if (strcmp(argvi, "-t") == 0 || strcmp(argvi, "--ttl") == 0) {
 			if (i + 1 < argc) {
@@ -66,7 +112,11 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	trace((char *)ip, (char *)database, 3, ttl);
+	if (isIpv4((char *)ip)) {
+		trace((char *)ip, (char *)database, 3, ttl);
+	} else {
+		trace6((char *)ip, (char *)database, 3, ttl);
+	}
 
 	return EXIT_SUCCESS;
 }

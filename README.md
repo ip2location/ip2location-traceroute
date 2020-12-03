@@ -70,13 +70,16 @@ ip2trace -p google.com -d /usr/share/ip2location/DB3.BIN
 
 
 
-Download More Sample Databases  
+Download IP2Location Databases  
 ------------------------------  
-```bash
-wget https://www.ip2location.com/downloads/sample.bin.db24.zip
-unzip samples-db24.zip
-```
+* Download free IP2Location LITE databases at [https://lite.ip2location.com](https://lite.ip2location.com)  
+* For more accurate commercial database, please refer to https://www.ip2location.com
 
+One you have obtained your download token, you can download the the database using **wget** as below:
+
+```
+wget "https://www.ip2location.com/download?token={DOWNLOAD_TOKEN}&file={DATABASE_CODE}"
+```
 
 
 

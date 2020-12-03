@@ -1,5 +1,4 @@
 #include "trace.h"
-#include "error.h"
 
 u_int16_t compute_icmp_checksum(const void *buff, int length)
 {
@@ -20,7 +19,22 @@ void construct_sockaddr(struct sockaddr_in *address, sa_family_t family, char *a
 {
 	bzero(address, sizeof(*address));
 	address->sin_family = family;
-	Inet_pton(address->sin_family, address_string, &(address->sin_addr));
+
+	if (inet_pton(address->sin_family, address_string, &(address->sin_addr)) != 1) {
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+}
+
+void construct_sockaddr6(struct sockaddr_in6 *address, sa_family_t family, char *address_string)
+{
+	bzero(address, sizeof(*address));
+	address->sin6_family = family;
+	
+	if (inet_pton(address->sin6_family, address_string, &(address->sin6_addr)) != 1) {
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
 }
 
 void construct_icmphdr(struct icmphdr *header, uint8_t type, uint8_t code, uint16_t id, uint16_t sequence)
@@ -42,12 +56,46 @@ void reset_replies(int n, struct reply array[n])
 
 void send_probes(int sockfd, struct sockaddr_in dest, int ttl, int probes, uint16_t id, uint16_t *seq_ptr)
 {
+	int result;
 	struct icmphdr header;
 	
 	for (int i = 0; i < probes; i++, (*seq_ptr)++) {
 		construct_icmphdr(&header, ICMP_ECHO, 0, id, *seq_ptr);
-		Setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(int));
-		Sendto(sockfd, &header, sizeof(header), 0, (struct sockaddr *)&dest, sizeof(dest));
+
+		if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(int)) == -1) {
+			fprintf(stderr, "Set Socket Options Error: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+
+		result = sendto(sockfd, &header, sizeof(header), 0, (struct sockaddr *)&dest, sizeof(dest));
+
+		if (result == 0 || result == -1) {
+			fprintf(stderr, "Send To Error: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+void send_probes6(int sockfd, struct sockaddr_in6 dest, int ttl, int probes, uint16_t id, uint16_t *seq_ptr)
+{
+	int result;
+	struct icmphdr header;
+	
+	for (int i = 0; i < probes; i++, (*seq_ptr)++) {
+		construct_icmphdr(&header, ICMP_ECHO, 0, id, *seq_ptr);
+
+		if (setsockopt(sockfd, IPPROTO_IPV6, IP_TTL, &ttl, sizeof(int)) == -1) {
+			fprintf(stderr, "Set Socket Options Error: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+
+		result = sendto(sockfd, &header, sizeof(header), 0, (struct sockaddr *)&dest, sizeof(dest));
+
+		if (result == 0 || result == -1) {
+			// fprintf(stderr, "Send To Error: %s\n", strerror(errno));
+			fprintf(stderr, "IPv6 inteface is not support in your machine.\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 }
 
@@ -69,7 +117,12 @@ int check_for_answers(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn
 	do {
 		FD_ZERO(&descriptors);
 		FD_SET(sockfd, &descriptors);
-		ready = Select(sockfd + 1, &descriptors, NULL, NULL, &tv);
+		ready = select(sockfd + 1, &descriptors, NULL, NULL, &tv);
+
+		if (ready == -1) {
+			fprintf(stderr, "Error: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
 		
 		if (ready > 0) {
 			receive_packets(sockfd, ttl, id, probes_per_turn, replies, &packets_left, tv, &destination_reached);
@@ -120,7 +173,7 @@ void receive_packets(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn,
 	uint16_t returned_seq;
 
 	while (1) {
-		packet_len = Recvfrom(sockfd, buffer, IP_MAXPACKET, MSG_DONTWAIT, (struct sockaddr *)&sender, &sender_len);
+		packet_len = recvfrom(sockfd, buffer, IP_MAXPACKET, MSG_DONTWAIT, (struct sockaddr *)&sender, &sender_len);
 		
 		if (packet_len == -1) {
 			break;
@@ -151,12 +204,12 @@ void receive_packets(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn,
 	}
 }
 
-void print_traceroute(uint16_t probes_per_turn, struct reply replies[probes_per_turn], uint16_t ttl, IP2Location *obj)
+void print_traceroute(uint16_t probes_per_turn, struct reply replies[probes_per_turn], uint16_t ttl, IP2Location *obj, int ip_version)
 {
 	int packets = 0;
 	struct timeval time_sum;
 	set_time(&time_sum, 0, 0);
-	char ip_str[20];
+	char ip_str[INET6_ADDRSTRLEN];
 	IP2LocationRecord *record = NULL;
 
 	printf("%d", ttl);
@@ -175,13 +228,29 @@ void print_traceroute(uint16_t probes_per_turn, struct reply replies[probes_per_
 			int is_address_new = 1;
 			
 			for (int j = 0; j < i; j++) {
-				if (replies[j].sender.sin_addr.s_addr == replies[i].sender.sin_addr.s_addr) {
-					is_address_new = 0;
+				if (ip_version == 4) {
+					if (replies[j].sender.sin_addr.s_addr == replies[i].sender.sin_addr.s_addr) {
+						is_address_new = 0;
+					}
+				} else {
+					if (replies[j].sender6.sin6_addr.s6_addr == replies[i].sender6.sin6_addr.s6_addr) {
+						is_address_new = 0;
+					}
 				}
 			}
 
 			if (is_address_new) {
-				Inet_ntop(AF_INET, &(replies[i].sender.sin_addr), ip_str, sizeof(ip_str));
+				if (ip_version == 4) {
+					if (inet_ntop(AF_INET, &(replies[i].sender.sin_addr), ip_str, sizeof(ip_str)) == NULL) {
+						fprintf(stderr, "Error: %s\n", strerror(errno));
+						exit(EXIT_FAILURE);
+					}
+				} else {
+					if (inet_ntop(AF_INET6, &(replies[i].sender6.sin6_addr), ip_str, sizeof(ip_str)) == NULL) {
+						fprintf(stderr, "Error: %s\n", strerror(errno));
+						exit(EXIT_FAILURE);
+					}
+				}
 
 				if (obj != NULL) {
 					record = IP2Location_get_all(obj, ip_str);
@@ -197,8 +266,8 @@ void print_traceroute(uint16_t probes_per_turn, struct reply replies[probes_per_
 	} else if (packets < probes_per_turn) {
 		printf("???");
 	} else {
-		printf("%ld", (time_sum.tv_usec / packets) / 1000);
-		printf("ms");
+		printf("%.4f", (float)(time_sum.tv_usec / packets) / 1000);
+		printf(" ms");
 	}
 
 	if (obj == NULL) {
@@ -320,7 +389,12 @@ void trace(char *destination_string, char *database, uint16_t probes_per_turn, i
 	struct icmphdr header;
 	construct_icmphdr(&header, ICMP_ECHO, 0, mypid, 0);
 
-	int sockfd = Socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+	int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+	
+	if (sockfd == -1) {
+		fprintf(stderr, "Error in socket, error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
 
 	struct reply replies[probes_per_turn];
 	uint16_t seq = probes_per_turn;
@@ -330,14 +404,60 @@ void trace(char *destination_string, char *database, uint16_t probes_per_turn, i
 		reset_replies(probes_per_turn, replies);
 		send_probes(sockfd, destination, ttl, probes_per_turn, mypid, &seq);
 		destination_reached = check_for_answers(sockfd, ttl, mypid, probes_per_turn, replies);
-		print_traceroute(probes_per_turn, replies, ttl, obj);
+		print_traceroute(probes_per_turn, replies, ttl, obj, 4);
 		
 		if (destination_reached) {
 			break;
 		}
 	}
 
-	Close(sockfd);
+	if (close(sockfd) == -1) {
+		exit(EXIT_FAILURE);
+	}
+
+	IP2Location_close(obj);
+}
+
+void trace6(char *destination_string, char *database, uint16_t probes_per_turn, int max_ttl)
+{
+	struct sockaddr_in6 destination;
+	construct_sockaddr6(&destination, AF_INET6, destination_string);
+	IP2Location *obj = NULL;
+
+	if (database != NULL) {
+		obj = IP2Location_open((char *)database);
+	}
+
+	pid_t mypid = getpid();
+
+	struct icmphdr header;
+	construct_icmphdr(&header, ICMP_ECHO, 0, mypid, 0);
+
+	int sockfd = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMP);
+	
+	if (sockfd == -1) {
+		fprintf(stderr, "Error in socket, error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	struct reply replies[probes_per_turn];
+	uint16_t seq = probes_per_turn;
+	int destination_reached = 0;
+
+	for (int ttl = 1; ttl <= max_ttl; ttl++) {
+		reset_replies(probes_per_turn, replies);
+		send_probes6(sockfd, destination, ttl, probes_per_turn, mypid, &seq);
+		destination_reached = check_for_answers(sockfd, ttl, mypid, probes_per_turn, replies);
+		print_traceroute(probes_per_turn, replies, ttl, obj, 6);
+		
+		if (destination_reached) {
+			break;
+		}
+	}
+
+	if (close(sockfd) == -1) {
+		exit(EXIT_FAILURE);
+	}
 
 	IP2Location_close(obj);
 }
