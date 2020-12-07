@@ -33,7 +33,7 @@ Usage
 ```bash
 ip2trace -p [IP ADDRESS/HOSTNAME] -d [IP2LOCATION BIN DATA PATH] [OPTIONS]
 
-  -d, --dababase
+  -d, --database
   Specify the path of IP2Location BIN database file.
 
   -h, -?, --help
