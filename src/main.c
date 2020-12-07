@@ -11,7 +11,7 @@ static void print_usage()
 	printf(
 "Usage:\n"
 "  ip2trace -p [IP ADDRESS/HOSTNAME] -d [IP2LOCATION BIN DATA PATH] [OPTIONS]\n\n"
-"  -d, --dababase\n"
+"  -d, --database\n"
 "  Specify the path of IP2Location BIN database file.\n"
 "\n"
 "  -h, -?, --help\n"
