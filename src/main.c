@@ -29,7 +29,10 @@ static void print_usage()
 
 static void print_version()
 {
-	printf("IP2Location Traceroute 8.0.0\n");
+	printf(
+"IP2Location Geolocation Traceroute (ip2trace) Version 8.0.0\n"
+"Copyright (c) 2021 IP2Location.com [MIT License]\n"
+"https://www.ip2location.com/free/traceroute-application\n");
 }
 
 static int isIpv4(char *ip)
