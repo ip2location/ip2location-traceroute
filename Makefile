@@ -1,15 +1,16 @@
 CC = gcc
-CFLAGS = 
 LIBS = -l IP2Location
 
 all: ip2trace
 ip2trace: src/main.o src/trace.o
-	$(CC) $(CFLAGS) $(LIBS) -o ip2trace $^
+	$(CC) -o ip2trace $^ $(LIBS)
+
 main.o: src/trace.h
 trace.o: src/trace.h
 
 clean:
 	rm -f src/*.o
+
 distclean:
 	rm -f src/*.o
 	rm -f ip2trace
