@@ -31,7 +31,7 @@ static void print_version()
 {
 	printf(
 "IP2Location Geolocation Traceroute (ip2trace) Version 8.0.0\n"
-"Copyright (c) 2021 IP2Location.com [MIT License]\n"
+"Copyright (c) 2024 IP2Location.com [MIT License]\n"
 "https://www.ip2location.com/free/traceroute-application\n");
 }
 
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 
 	printf(
 "IP2Location Geolocation Traceroute (ip2trace) Version 8.0.0\n"
-"Copyright (c) 2021 IP2Location.com [MIT License]\n"
+"Copyright (c) 2024 IP2Location.com [MIT License]\n"
 "https://www.ip2location.com/free/traceroute-application\n\n");
 
 	if (isIpv4((char *)ip)) {
