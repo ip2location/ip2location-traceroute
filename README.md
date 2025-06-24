@@ -42,6 +42,9 @@ ip2trace -p [IP ADDRESS/HOSTNAME] -d [IP2LOCATION BIN DATA PATH] [OPTIONS]
   -p, --ip
   Specify an IP address or hostname.
 
+  -U, --udp
+  Use UDP for traceroute. (Default: ICMP)
+
   -t, --ttl
   Set the maxinum TTL for each probe.
 

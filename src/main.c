@@ -20,6 +20,9 @@ static void print_usage()
 "  -p, --ip\n"
 "  Specify an IP address or hostname.\n"
 "\n"
+"  -U, --udp\n"
+"  Use UDP for traceroute. (Default: ICMP)\n"
+"\n"
 "  -t, --ttl\n"
 "  Set the max number of hops. (Default: 30)\n"
 "\n"
@@ -30,8 +33,8 @@ static void print_usage()
 static void print_version()
 {
 	printf(
-"IP2Location Geolocation Traceroute (ip2trace) Version 8.0.0\n"
-"Copyright (c) 2024 IP2Location.com [MIT License]\n"
+"IP2Location Geolocation Traceroute (ip2trace) Version 8.1.0\n"
+"Copyright (c) 2025 IP2Location.com [MIT License]\n"
 "https://www.ip2location.com/free/traceroute-application\n");
 }
 
@@ -52,6 +55,7 @@ int main(int argc, char *argv[])
 	int i;
 	int ttl = 30;
 	char *database = NULL;
+	int probe_type = 0; // 0 for ICMP, 1 for UDP
 	char ip[INET6_ADDRSTRLEN];
 	struct addrinfo buffer, *res;
 
@@ -62,6 +66,8 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc) {
 				database = argv[++i];
 			}
+		} else if (strcmp(argvi, "-U") == 0 || strcmp(argvi, "--udp") == 0) {
+			probe_type = 1;
 		} else if (strcmp(argvi, "-p") == 0 || strcmp(argvi, "--ip") == 0) {
 			if (i + 1 < argc) {
 				int err;
@@ -115,15 +121,17 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+/*
 	printf(
-"IP2Location Geolocation Traceroute (ip2trace) Version 8.0.0\n"
-"Copyright (c) 2024 IP2Location.com [MIT License]\n"
+"IP2Location Geolocation Traceroute (ip2trace) Version 8.1.0\n"
+"Copyright (c) 2025 IP2Location.com [MIT License]\n"
 "https://www.ip2location.com/free/traceroute-application\n\n");
-
+*/
+	print_version();
 	if (isIpv4((char *)ip)) {
-		trace((char *)ip, (char *)database, 3, ttl);
+		trace((char *)ip, (char *)database, 3, ttl, probe_type);
 	} else {
-		trace6((char *)ip, (char *)database, 3, ttl);
+		trace6((char *)ip, (char *)database, 3, ttl, probe_type);
 	}
 
 	return EXIT_SUCCESS;
