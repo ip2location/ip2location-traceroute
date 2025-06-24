@@ -4,6 +4,7 @@ IP2Location is a tool allowing user to get IP address information such as countr
 latitude, longitude, zip code, time zone, ISP, domain name, connection type, area code, weather, 
 mobile network, elevation, usage type from traceroute probes IP address.
 
+**Only Linux supported at present.**
 
 
 ### Installation
