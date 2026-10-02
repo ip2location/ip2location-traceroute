@@ -3,9 +3,16 @@
 #include <errno.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
-#include <netinet/ip6.h>     // struct ip6_hdr
-#include <netinet/icmp6.h>   // struct icmp6_hdr, ICMP6_* constants
+#include <netinet/ip6.h>
+#if defined(__has_include)
+#if __has_include(<netinet/icmp6.h>)
+#include <netinet/icmp6.h>
+#endif
+#else
+#include <netinet/icmp6.h>
+#endif
 #include <netinet/udp.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +22,59 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <IP2Location.h>
+
+#if !defined(__linux__)
+struct icmphdr {
+	uint8_t type;
+	uint8_t code;
+	uint16_t checksum;
+	union {
+		struct {
+			uint16_t id;
+			uint16_t sequence;
+		} echo;
+		uint32_t gateway;
+		struct {
+			uint16_t unused;
+			uint16_t mtu;
+		} frag;
+	} un;
+};
+#endif
+
+#ifndef ICMP_ECHOREPLY
+#define ICMP_ECHOREPLY 0
+#endif
+
+#ifndef ICMP_DEST_UNREACH
+#define ICMP_DEST_UNREACH 3
+#endif
+
+#ifndef ICMP_ECHO
+#define ICMP_ECHO 8
+#endif
+
+#ifndef ICMP_TIME_EXCEEDED
+#define ICMP_TIME_EXCEEDED 11
+#endif
+
+#ifndef ICMP6_ECHO_REQUEST
+struct icmp6_hdr {
+	uint8_t icmp6_type;
+	uint8_t icmp6_code;
+	uint16_t icmp6_cksum;
+	uint16_t icmp6_id;
+	uint16_t icmp6_seq;
+};
+#define ICMP6_ECHO_REQUEST 128
+#define ICMP6_ECHO_REPLY 129
+#define ICMP6_DST_UNREACH 1
+#define ICMP6_TIME_EXCEEDED 3
+#endif
+
+#ifndef IPPROTO_MH
+#define IPPROTO_MH 135
+#endif
 
 struct reply {
 	int replied;

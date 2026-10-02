@@ -9,7 +9,7 @@ mobile network, elevation, usage type from traceroute probes IP address.
 
 ### Installation
 
-1. Download the latest IP2Location C library from https://github.com/chrislim2888/IP2Location-C-Library Follow the instructions to compile and install the library.
+1. Download the latest IP2Location C library from https://github.com/ip2location/IP2Location-C-Library Follow the instructions to compile and install the library.
 
 2. Download or clone this repository to your local machine.
 

@@ -97,7 +97,6 @@ void send_probes6(int sockfd, struct sockaddr_in6 dest, int ttl, int probes, uin
 	for (int i = 0; i < probes; i++, (*seq_ptr)++) {
 		gettimeofday(&replies[i].sent_time, NULL);
 
-		// Fill ICMPv6 header
 		header.icmp6_type = ICMP6_ECHO_REQUEST;
 		header.icmp6_code = 0;
 		header.icmp6_id = htons(id);
@@ -137,7 +136,6 @@ void send_udp_probes(int sockfd, struct sockaddr_in dest, int ttl, int probes, u
 
 void send_udp_probes6(int sockfd, struct sockaddr_in6 dest, int ttl, int probes, uint16_t base_port, struct reply replies[])
 {
-	// Set the TTL (hop limit) for this set of probes
 	if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl)) < 0) {
 		perror("setsockopt(IPV6_UNICAST_HOPS)");
 		exit(EXIT_FAILURE);
@@ -145,14 +143,9 @@ void send_udp_probes6(int sockfd, struct sockaddr_in6 dest, int ttl, int probes,
 
 	for (int i = 0; i < probes; i++) {
 		int dest_port = base_port + ttl * probes + i;
-
-		// Set the port for this probe
+		
 		dest.sin6_port = htons(encode_probe_port(base_port, ttl, i, probes));
-
-		// Record the send time for this probe
 		gettimeofday(&replies[i].sent_time, NULL);
-
-		// Send an empty UDP datagram
 		ssize_t sent = sendto(sockfd, NULL, 0, 0,
 			(struct sockaddr*)&dest,
 			sizeof(dest));
@@ -160,10 +153,6 @@ void send_udp_probes6(int sockfd, struct sockaddr_in6 dest, int ttl, int probes,
 		if (sent < 0) {
 			fprintf(stderr, "sendto failed on probe %d (TTL=%d, port=%d): %s\n",
 				i, ttl, dest_port, strerror(errno));
-		}
-		else {
-			// Optional: debug logging
-			// printf("[SEND6][TTL=%d][i=%d] port=%d\n", ttl, i, dest_port);
 		}
 	}
 }
@@ -180,7 +169,7 @@ int check_for_answers(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn
 	int packets_left = probes_per_turn;
 	int ready;
 	struct timeval tv;
-	set_time(&tv, 0, 1000000); // 1 second
+	set_time(&tv, 0, 1000000);
 	fd_set descriptors;
 	int destination_reached = 0;
 
@@ -216,7 +205,7 @@ void analyze_packet(u_int8_t* buffer, int ip_version, uint8_t* returned_type_p, 
 			int inner_ip_len = inner_ip->ip_hl * 4;
 			struct udphdr* inner_udp = (struct udphdr*)((u_int8_t*)inner_ip + inner_ip_len);
 			*returned_id_p = 0;
-			*returned_seq_p = ntohs(inner_udp->dest);
+			*returned_seq_p = ntohs(inner_udp->uh_dport);
 		}
 		else {
 			*returned_id_p = icmp->un.echo.id;
@@ -233,25 +222,24 @@ void analyze_packet(u_int8_t* buffer, int ip_version, uint8_t* returned_type_p, 
 			ptr += sizeof(struct ip6_hdr);
 
 			uint8_t next = inner_ip6->ip6_nxt;
-
-			// Loop through extension headers
+			
 			while (next == IPPROTO_HOPOPTS || next == IPPROTO_ROUTING ||
 				next == IPPROTO_FRAGMENT || next == IPPROTO_DSTOPTS ||
 				next == IPPROTO_AH || next == IPPROTO_MH) {
-				// Extension headers have same format: next header + hdr ext len
+				
 				struct {
 					uint8_t next_header;
 					uint8_t hdr_ext_len;
 				} *ext = (void*)ptr;
 
 				next = ext->next_header;
-				ptr += (ext->hdr_ext_len + 1) * 8; // In 8-byte units, excluding first 8 bytes
+				ptr += (ext->hdr_ext_len + 1) * 8;
 			}
 
 			if (next == IPPROTO_UDP) {
 				struct udphdr* inner_udp = (struct udphdr*)ptr;
 				*returned_id_p = 0;
-				*returned_seq_p = ntohs(inner_udp->dest);
+				*returned_seq_p = ntohs(inner_udp->uh_dport);
 			}
 			else if (next == IPPROTO_ICMPV6) {
 				struct icmp6_hdr* inner_icmp6 = (struct icmp6_hdr*)ptr;
@@ -291,11 +279,10 @@ void receive_packets(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn,
 
 		analyze_packet(buffer, ip_version, &returned_type, &returned_id, &returned_seq);
 
-		if (probe_type == 0) { // ICMP
+		if (probe_type == 0) {
 			int index = returned_seq % probes_per_turn;
 			if (index >= probes_per_turn) continue;
 
-			// Always store sender if Time Exceeded
 			if (returned_type == ICMP6_TIME_EXCEEDED || returned_type == ICMP_TIME_EXCEEDED) {
 				replies[index].replied = 1;
 				timersub(&now, &replies[index].sent_time, &replies[index].rtt);
@@ -307,17 +294,16 @@ void receive_packets(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn,
 					memcpy(&replies[index].sender6, (struct sockaddr_in6*)&sender, sizeof(struct sockaddr_in6));
 				}
 				(*packets_left_ptr)--;
-				continue; // Done for this packet
+				continue;
 			}
-
-			// For Echo Reply, require matching ID
+			
 			if (returned_id == id && (returned_type == ICMP_ECHOREPLY || returned_type == ICMP6_ECHO_REPLY)) {
 				replies[index].replied = 1;
 				timersub(&now, &replies[index].sent_time, &replies[index].rtt);
 
 				if (ip_version == 4) {
 					memcpy(&replies[index].sender, (struct sockaddr_in*)&sender, sizeof(struct sockaddr_in));
-					if (returned_type == ICMP_ECHOREPLY) { // must use with the ip version check
+					if (returned_type == ICMP_ECHOREPLY) {
 						*destination_reached = 1;
 					}
 				}
@@ -330,7 +316,7 @@ void receive_packets(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn,
 				(*packets_left_ptr)--;
 			}
 		}
-		else { // UDP
+		else {
 			int decoded_ttl = decode_ttl_from_port(33434, returned_seq, probes_per_turn);
 			int index = decode_probe_index_from_port(33434, returned_seq, probes_per_turn);
 			if (index >= probes_per_turn) continue;
@@ -341,7 +327,7 @@ void receive_packets(int sockfd, int ttl, uint16_t id, uint16_t probes_per_turn,
 
 				if (ip_version == 4) {
 					memcpy(&replies[index].sender, (struct sockaddr_in*)&sender, sizeof(struct sockaddr_in));
-					if (returned_type == ICMP_DEST_UNREACH) { // must use with the ip version check
+					if (returned_type == ICMP_DEST_UNREACH) {
 							*destination_reached = 1;
 					}
 				}
